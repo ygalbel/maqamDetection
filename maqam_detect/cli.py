@@ -11,6 +11,7 @@ import numpy as np
 from .classify import classify
 from .histogram import BINS, REFERENCE_HZ, pitch_class_distribution
 from .pitch import extract_pitch
+from .sources import resolve_audio
 from .tonic import last_note_tonic_seed
 
 NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
@@ -55,17 +56,22 @@ def cents_to_hz_near(cents_mod: float, near_hz: float) -> float:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="maqam-detect", description="Detect Arabic maqam from audio.")
-    parser.add_argument("audio", type=Path, help="Path to audio file (wav, mp3, flac, ...)")
+    parser.add_argument("audio", type=str, help="Path to audio file (wav, mp3, flac, ...) OR URL (YouTube etc.)")
     parser.add_argument("--tonic", type=str, default=None, help="Override tonic (e.g. D4, 294hz)")
     parser.add_argument("--top", type=int, default=3, help="Show top N matches")
     parser.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     args = parser.parse_args(argv)
 
-    if not args.audio.exists():
-        print(f"error: {args.audio} not found", file=sys.stderr)
+    try:
+        audio_path = resolve_audio(args.audio)
+    except FileNotFoundError as e:
+        print(f"error: {e} not found", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"error resolving audio: {e}", file=sys.stderr)
         return 1
 
-    track = extract_pitch(args.audio)
+    track = extract_pitch(audio_path)
     pcd = pitch_class_distribution(track)
 
     if args.tonic:
@@ -85,7 +91,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         total = sum(m.score for m in matches) or 1.0
         print(json.dumps({
-            "file": str(args.audio),
+            "file": str(audio_path),
+            "source": args.audio,
             "tonic_hz": winner_hz,
             "tonic_note": hz_to_note_name(winner_hz),
             "matches": [
