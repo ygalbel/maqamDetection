@@ -95,14 +95,15 @@ def main(argv: list[str] | None = None) -> int:
             "source": args.audio,
             "tonic_hz": winner_hz,
             "tonic_note": hz_to_note_name(winner_hz),
-            "matches": [
+            "results": top[0].maqam,
+            "possibilities": [
                 {
                     "maqam": m.maqam,
                     "score": m.score,
                     "confidence": m.score / total,
                     "tonic_shift_cents": m.tonic_shift_cents,
                 }
-                for m in top
+                for m in top[1:]
             ],
         }, indent=2))
     else:
